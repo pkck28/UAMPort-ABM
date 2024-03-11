@@ -1,5 +1,5 @@
 # Classes for the model, vehicle, ports and hub
-# Unit of analysis: minute or seconds
+# Unit of analysis: minute
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,22 +18,24 @@ class Vehicle():
 
 class Hub():
 
-    def __init__(self, location, hover_location, turnaround_time):
+    def __init__(self, location, hover_location, turnaround_time, inter_arrival_time):
 
         self.location = location
         self.hover_location = hover_location
         self.num_pads = location.shape[0]
         self.turnaround_time = turnaround_time
+        self.inter_arrivel_time = inter_arrival_time
 
 class Port():
 
-    def __init__(self, location, hover_location, num_pads, turnaround_time, time_to_hub):
+    def __init__(self, location, hover_location, num_pads, turnaround_time, inter_arrival_time, time_to_hub):
 
         self.location = location
         self.hover_location = hover_location
         self.num_pads = num_pads
         self.turnaround_time = turnaround_time
         self.time_to_hub = time_to_hub
+        self.inter_arrival_time = inter_arrival_time
 
 class Model():
 
@@ -57,16 +59,15 @@ class Model():
         self.vehicles = vehicles
 
         # Assigning the initial variables for the hub
-        # self.hub.avail_pads = np.linspace(1, self.hub.location.shape[0], self.hub.location.shape[0], dtype=int).tolist()
-        self.hub.avail_pads = self.hub.num_pads
-        self.hub.occupied_pads = []
+        self.hub.avail_pads = np.linspace(1, self.hub.location.shape[0], self.hub.location.shape[0], dtype=int).tolist()
+        # self.hub.avail_pads = self.hub.num_pads
         self.hub.takeoff = 0
         self.hub.land = 0
         self.hub.queue = []
 
+        # Assigning the initial variables for the ports
         for port in self.ports:
-            port.avail_pads = 0 # Since vehicles are occupying the pads
-            port.occupied_pads = [1]
+            port.avail_pads = [] # Since vehicles are occupying the pads
             port.takeoff = 0
             port.land = 0
             port.queue = []
@@ -74,6 +75,7 @@ class Model():
         # Assigning the initial variables for the vehicles
         for vehicle in self.vehicles:
             vehicle.destination = None
+            vehicle.pad = 1
             vehicle.wait_time = 0
             vehicle.status = 'ground'
             vehicle.travel_time = self.ports[vehicle.id].time_to_hub
@@ -99,46 +101,8 @@ class Model():
             # Vehicle position updated asynchronusly
             for vehicle in self.vehicles:
 
-                # Vehicle is flying towards destination
-                if vehicle.status == 'flight' and vehicle.travel_time > 0:
-                    vehicle.location[0] += vehicle.dx
-                    vehicle.location[1] += vehicle.dy
-                    vehicle.travel_time -= 1
-                    vehicle.avail_energy -= vehicle.discharge_rate
-
-                # Vehicle has reached the destination's hover location
-                elif vehicle.status == 'flight' and vehicle.travel_time == 0:
-                    
-                    if vehicle.id not in vehicle.destination.queue:
-                            vehicle.destination.queue.append(vehicle.id)
-
-                    # Land if a pad is available and next in queue or hover
-                    if vehicle.destination.avail_pads > 0 and vehicle.id == vehicle.destination.queue[0]:
-
-                        # vehicle.destination.occupied_pads.append(vehicle.destination.avail_pads.pop(0))
-
-                        vehicle.location[0] = vehicle.destination.location[0]
-                        vehicle.location[1] = vehicle.destination.location[1]
-                        vehicle.avail_energy -= vehicle.discharge_rate
-                        vehicle.status = 'ground'
-                        vehicle.wait_time = vehicle.destination.turnaround_time
-                        vehicle.destination.land += 1
-                        vehicle.destination.avail_pads -= 1
-                        vehicle.destination.queue.remove(vehicle.id)
-                    else:
-                        vehicle.avail_energy -= vehicle.discharge_rate/2 # discharge rate is half when hovering
-
-                # Vehicle is on the ground until turnaround time
-                elif vehicle.status == 'ground' and vehicle.wait_time > 0:
-
-                    vehicle.wait_time -= 1
-                    
-                    # Recharge the vehicle if it is at the hub
-                    if isinstance(vehicle.destination, Hub) and vehicle.avail_energy < vehicle.max_energy:
-                        vehicle.avail_energy += vehicle.recharge_rate
-
                 # Vehicle is on the ground and ready to takeoff
-                elif vehicle.status == 'ground' and vehicle.wait_time == 0:
+                if vehicle.status == 'ground' and vehicle.wait_time == 0:
 
                     # Only takeoff if vehicle has enough energy for round trip
                     if isinstance(vehicle.destination, Hub) and vehicle.avail_energy < 2.5*self.ports[vehicle.id].time_to_hub:
@@ -146,40 +110,90 @@ class Model():
                         
                     else:
 
-                        # vehicle.destination.avail_pads.append(vehicle.destination.occupied_pads.pop(0))
-
-                        # Setting next destination based on the current destination
                         if isinstance(vehicle.destination, Hub):
+                            # Updating the hub variables
                             self.hub.takeoff += 1
-                            self.hub.avail_pads += 1
+                            self.hub.avail_pads.append(vehicle.pad)
+
+                            # Takeoff to hover location
                             vehicle.location[0] = self.hub.hover_location[vehicle.id,0]
                             vehicle.location[1] = self.hub.hover_location[vehicle.id,1]
 
+                            # Setting the next destination
                             vehicle.destination = self.ports[vehicle.id]
                             vehicle.travel_time = self.ports[vehicle.id].time_to_hub
                             vehicle.dx = (vehicle.destination.hover_location[0] - vehicle.location[0])/vehicle.travel_time
                             vehicle.dy = (vehicle.destination.hover_location[1] - vehicle.location[1])/vehicle.travel_time
+
                         else:
+                            # Updating the port variables
                             self.ports[vehicle.id].takeoff += 1
-                            self.ports[vehicle.id].avail_pads += 1
+                            self.ports[vehicle.id].avail_pads.append(vehicle.pad)
+
+                            # Takeoff to hover location
                             vehicle.location[0] = self.ports[vehicle.id].hover_location[0]
                             vehicle.location[1] = self.ports[vehicle.id].hover_location[1]
                             
+                            # Setting the next destination
                             vehicle.destination = self.hub
                             vehicle.travel_time = self.ports[vehicle.id].time_to_hub
                             vehicle.dx = (vehicle.destination.hover_location[vehicle.id,0] - vehicle.location[0])/vehicle.travel_time
                             vehicle.dy = (vehicle.destination.hover_location[vehicle.id,1] - vehicle.location[1])/vehicle.travel_time
 
+                        vehicle.avail_energy -= vehicle.discharge_rate/2 # discharge rate is half when taking off
                         vehicle.status = 'flight'
 
+                # Vehicle is on the ground until turnaround time
+                elif vehicle.status == 'ground' and vehicle.wait_time > 0:
+
+                    vehicle.wait_time -= 1 # decrementing the wait time
+                    
+                    # Recharge the vehicle if it is at the hub
+                    if isinstance(vehicle.destination, Hub) and vehicle.avail_energy < vehicle.max_energy:
+                        vehicle.avail_energy += vehicle.recharge_rate
+
+                # Vehicle has reached the destination's hover location
+                elif vehicle.status == 'flight' and vehicle.travel_time == 0:
+                    
+                    # Adding to the queue
+                    if vehicle.id not in vehicle.destination.queue:
+                        vehicle.destination.queue.append(vehicle.id)
+
+                    # Land if a pad is available and next in queue or else hover
+                    if len(vehicle.destination.avail_pads) > 0 and vehicle.id == vehicle.destination.queue[0]:
+
+                        vehicle.status = 'ground'
+                        vehicle.wait_time = vehicle.destination.turnaround_time
+                        vehicle.destination.land += 1
+                        vehicle.destination.queue.remove(vehicle.id)
+                        vehicle.pad = vehicle.destination.avail_pads.pop(0) # Removing the pad number from the available pads and assign to vehicle
+
+                        # Moving vehicle to assigned pad
+                        if isinstance(vehicle.destination, Hub):
+                            vehicle.location[0] = vehicle.destination.location[vehicle.pad-1,0]
+                            vehicle.location[1] = vehicle.destination.location[vehicle.pad-1,1]
+                        else:
+                            vehicle.location[0] = vehicle.destination.location[0]
+                            vehicle.location[1] = vehicle.destination.location[1]
+
+                    vehicle.avail_energy -= vehicle.discharge_rate/2 # discharge rate is half when hovering/landing
+
+                # Vehicle is flying towards destination
+                elif vehicle.status == 'flight' and vehicle.travel_time > 0:
+
+                    vehicle.location[0] += vehicle.dx
+                    vehicle.location[1] += vehicle.dy
+                    vehicle.travel_time -= 1
+                    vehicle.avail_energy -= vehicle.discharge_rate
+                
     def plot(self, i=None):
         """
             Method to plot all the entities within simulation
         """
 
         color = ['r', 'b', 'g', 'm', 'k', 'c']
-        pad_radius = 0.2
-        hub_pad_radius = 2*pad_radius
+        pad_radius = 0.3
+        hub_pad_radius = 0.4
 
         fig, ax = plt.subplots(figsize=(8, 8))
 
@@ -195,7 +209,7 @@ class Model():
 
         # Plotting the ports
         for index, port in enumerate(self.ports):
-            circle = plt.Circle((port.location[0], port.location[1]), pad_radius, fill=False)
+            circle = plt.Circle((port.location[0], port.location[1]), pad_radius, fill=True, color=color[index], alpha=0.2)
             ax.add_patch(circle)
             ax.annotate(index+1, (port.location[0], port.location[1]), va="center", ha="center", fontsize=14)
             ax.plot(self.hub.hover_location[index,0], self.hub.hover_location[index,1], 'kx')
