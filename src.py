@@ -3,7 +3,8 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-import copy
+import copy, os
+import imageio.v2 as imageio
 
 class Vehicle():
 
@@ -92,11 +93,23 @@ class Model():
                 Number of iterations
         """
 
+        # Creating directory for storing the results
+        directory = 'output'
+        if not os.path.isdir(directory):
+            os.system("mkdir {}".format(directory))
+        else:
+            os.system("rm -r {}".format(directory))
+            os.system("mkdir {}".format(directory))
+        images = []
+
         # Simlulation loop
         for i in range(iterations+1):
 
             # Plotting
             self.plot(i)
+
+            # Images
+            images.append(imageio.imread(directory+'/iteration'+str(i+1)+'.png'))
 
             # Vehicle position updated asynchronusly
             for vehicle in self.vehicles:
@@ -185,12 +198,14 @@ class Model():
                     vehicle.location[1] += vehicle.dy
                     vehicle.travel_time -= 1
                     vehicle.avail_energy -= vehicle.discharge_rate
-                
+
+        imageio.mimsave(directory+'/animation.gif', images, fps=2.0)
+            
     def plot(self, i=None):
         """
             Method to plot all the entities within simulation
         """
-
+        
         color = ['r', 'b', 'g', 'm', 'k', 'c']
         pad_radius = 0.3
         hub_pad_radius = 0.4
@@ -239,7 +254,8 @@ class Model():
         ax.set_yticks([])
         ax.legend(loc='upper left', fontsize=12)
         fig.tight_layout()
-        plt.show()
+        # plt.show()
+        plt.savefig(f'output/iteration{i+1}.png')
         plt.close()
 
 def pol2cart(rho, phi):

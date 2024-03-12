@@ -10,11 +10,8 @@ UAM Port ABM
    :maxdepth: 2
    :caption: Contents:
 
+.. ![Alt Text](./_static/animation.gif)
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. image:: _static/animation.gif
+..   :width: 400
+  :alt: Alternative text

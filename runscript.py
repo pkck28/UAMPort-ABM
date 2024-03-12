@@ -3,8 +3,8 @@ import copy, argparse
 import numpy as np
 
 parser = argparse.ArgumentParser(description='Run the simulation')
-parser.add_argument('--num_itr', type=int, default=100, help='Number of iterations')
-parser.add_argument('--num_pads', type=int, default=2, help='Number of pads at the hub')
+parser.add_argument('--num_itr', type=int, default=720, help='Number of iterations')
+parser.add_argument('--num_pads', type=int, default=3, help='Number of pads at the hub')
 parser.add_argument('--num_ports', type=int, default=6, help='Number of remote ports')
 args = parser.parse_args()
 
