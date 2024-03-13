@@ -199,7 +199,7 @@ class Model():
                     vehicle.travel_time -= 1
                     vehicle.avail_energy -= vehicle.discharge_rate
 
-        imageio.mimsave(directory+'/animation.gif', images, fps=2.0)
+        imageio.mimsave(directory+'/animation.gif', images, format='.gif', fps=2.0, loop=0)
             
     def plot(self, i=None):
         """
@@ -242,8 +242,8 @@ class Model():
                         ha="left", fontsize=10)
 
         # Add no of takeoffs and landings
-        data_loc = (self.hub.hover_location[0,0] + 0.1, -self.hub.hover_location[0,0] - 0.1)
-        ax.annotate(f'TO: {self.hub.takeoff}\nL: {self.hub.land}\n{self.hub.queue}',
+        data_loc = (self.hub.hover_location[0,0] + 0.7, -self.hub.hover_location[0,0] - 0.5)
+        ax.annotate(f'TO: {self.hub.takeoff}\nL: {self.hub.land}',
                     data_loc, va="center", ha="center", fontsize=12)
 
         # Asthetics
