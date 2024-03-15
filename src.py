@@ -19,24 +19,22 @@ class Vehicle():
 
 class Hub():
 
-    def __init__(self, location, hover_location, turnaround_time, inter_arrival_time):
+    def __init__(self, location, hover_location, turnaround_time):
 
         self.location = location
         self.hover_location = hover_location
         self.num_pads = location.shape[0]
         self.turnaround_time = turnaround_time
-        self.inter_arrivel_time = inter_arrival_time
 
 class Port():
 
-    def __init__(self, location, hover_location, num_pads, turnaround_time, inter_arrival_time, time_to_hub):
+    def __init__(self, location, hover_location, num_pads, turnaround_time, time_to_hub):
 
         self.location = location
         self.hover_location = hover_location
         self.num_pads = num_pads
         self.turnaround_time = turnaround_time
         self.time_to_hub = time_to_hub
-        self.inter_arrival_time = inter_arrival_time
 
 class Model():
 
@@ -61,7 +59,6 @@ class Model():
 
         # Assigning the initial variables for the hub
         self.hub.avail_pads = np.linspace(1, self.hub.location.shape[0], self.hub.location.shape[0], dtype=int).tolist()
-        # self.hub.avail_pads = self.hub.num_pads
         self.hub.takeoff = 0
         self.hub.land = 0
         self.hub.queue = []
@@ -79,6 +76,7 @@ class Model():
             vehicle.pad = 1
             vehicle.wait_time = 0
             vehicle.status = 'ground'
+            vehicle.trip = 0
             vehicle.travel_time = self.ports[vehicle.id].time_to_hub
             vehicle.dx = (self.hub.hover_location[vehicle.id,0] - vehicle.location[0])/vehicle.travel_time
             vehicle.dy = (self.hub.hover_location[vehicle.id,1] - vehicle.location[1])/vehicle.travel_time
@@ -176,6 +174,7 @@ class Model():
                     if len(vehicle.destination.avail_pads) > 0 and vehicle.id == vehicle.destination.queue[0]:
 
                         vehicle.status = 'ground'
+                        vehicle.trip += 1
                         vehicle.wait_time = vehicle.destination.turnaround_time
                         vehicle.destination.land += 1
                         vehicle.destination.queue.remove(vehicle.id)
@@ -235,26 +234,33 @@ class Model():
 
             ax.quiver(vehicle.location[0], vehicle.location[1], vehicle.dx, vehicle.dy,
                         angles='xy', zorder=10, color=color[index], headlength=5, headwidth=4, 
-                        headaxislength=5, pivot="middle", alpha=0.6, label=f'Vehicle {index+1}')
+                        headaxislength=5, pivot="middle", alpha=0.6, label=f'Vehicle {index+1}: {vehicle.trip} trips')
 
             # Annotate charge level
             ax.annotate(vehicle.avail_energy, (vehicle.location[0]+0.1, vehicle.location[1]+0.1), va="bottom", 
                         ha="left", fontsize=10)
 
         # Add no of takeoffs and landings
-        data_loc = (self.hub.hover_location[0,0] + 0.7, -self.hub.hover_location[0,0] - 0.5)
-        ax.annotate(f'TO: {self.hub.takeoff}\nL: {self.hub.land}',
-                    data_loc, va="center", ha="center", fontsize=12)
+        bbox_props = dict(boxstyle="round, pad=0.3", fc="w", ec="k", lw=0.72)
+        msg = f'# of T/LO operations\nHub: T={self.hub.takeoff}, LO={self.hub.land}'
+        for index, port in enumerate(self.ports):
+            msg += f'\nPort {index+1}: T={port.takeoff}, LO={port.land}'
+        ax.annotate(msg, (3.5, -1.8), va="center", ha="center", fontsize=12, bbox=bbox_props)
+
+        # Adding a note
+        ax.annotate('Number near vehicle\ndenotes energy level', (0.0, -4.0), va="center", 
+                    ha="center", fontsize=12, bbox=bbox_props)
+        ax.annotate('\'x\' denotes\nhover location', (0.0, 4.0), va="center", 
+                    ha="center", fontsize=12, bbox=bbox_props)
 
         # Asthetics
         if i is not None:
-            ax.set_title('Time: {}'.format(itr2time(i)))
+            ax.set_title('UAM Dashboard - Time: {}'.format(itr2time(i)))
         ax.axis('equal')
         ax.set_xticks([])
         ax.set_yticks([])
-        ax.legend(loc='upper left', fontsize=12)
+        ax.legend(loc=(0.01, 0.58), fontsize=12)
         fig.tight_layout()
-        # plt.show()
         plt.savefig(f'output/iteration{i+1}.png')
         plt.close()
 

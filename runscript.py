@@ -14,26 +14,24 @@ num_ports = args.num_ports
 
 # Creating the hub
 pad_location, hover_location = hubTopology(num_pads, num_ports) # Hub topology
-turnaround_time = 10 # min
-inter_arrivel_time = 1 # min
-hub = Hub(pad_location, hover_location, turnaround_time, inter_arrivel_time)
+turnaround_time = 8 # min
+hub = Hub(pad_location, hover_location, turnaround_time)
 
 # Creating remote ports
 port_dist_center = 4.0
 port_location = pol2cart(port_dist_center, np.linspace(0, 2*np.pi, num_ports, endpoint=False))
 hover_location = pol2cart(port_dist_center - 0.4, np.linspace(0, 2*np.pi, num_ports, endpoint=False))
 turnaround_time = 5 # min
-inter_arrivel_time = 1 # min
 time_to_hub = np.linspace(15, 30, num_ports, dtype=int) # min
 ports = []
 for i in range(num_ports):
     ports.append(Port(port_location[i,:], hover_location[i,:], num_pads, 
-                      turnaround_time, inter_arrivel_time, time_to_hub[i]))
+                      turnaround_time, time_to_hub[i]))
 
 # Creating vehicles
-max_energy = 75
+max_energy = 100
 discharge_rate = 1 # units/min
-recharge_rate = 2 # units/min
+recharge_rate = 3 # units/min
 vehicles = []
 for i in range(num_ports):
 # for i in range(2):
