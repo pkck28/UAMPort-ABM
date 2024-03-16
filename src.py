@@ -92,12 +92,12 @@ class Model():
         """
 
         # Creating directory for storing the results
-        directory = 'output'
-        if not os.path.isdir(directory):
-            os.system("mkdir {}".format(directory))
+        self.directory = f'output_{self.hub.num_pads}_{self.hub.turnaround_time}_{self.vehicles[0].recharge_rate}'
+        if not os.path.isdir(self.directory):
+            os.system("mkdir {}".format(self.directory))
         else:
-            os.system("rm -r {}".format(directory))
-            os.system("mkdir {}".format(directory))
+            os.system("rm -r {}".format(self.directory))
+            os.system("mkdir {}".format(self.directory))
         images = []
 
         # Simlulation loop
@@ -107,18 +107,22 @@ class Model():
             self.plot(i)
 
             # Images
-            images.append(imageio.imread(directory+'/iteration'+str(i+1)+'.png'))
+            images.append(imageio.imread(self.directory+'/iteration'+str(i+1)+'.png'))
+
+            if np.min([vehicle.avail_energy for vehicle in self.vehicles]) < 0:
+                print('Energy level is below 0. Simulation stopped at iteration: {}'.format(i))
+                break
 
             # Vehicle position updated asynchronusly
             for vehicle in self.vehicles:
 
-                # Vehicle is on the ground and ready to takeoff
+                # Vehicle is on the ground and ready to liftoff
                 if vehicle.status == 'ground' and vehicle.wait_time == 0:
 
                     # Only takeoff if vehicle has enough energy for round trip
-                    if isinstance(vehicle.destination, Hub) and vehicle.avail_energy < 2.5*self.ports[vehicle.id].time_to_hub:
-                            vehicle.avail_energy += vehicle.recharge_rate
-                        
+                    if isinstance(vehicle.destination, Hub) and vehicle.avail_energy < 3.0*self.ports[vehicle.id].time_to_hub:
+                            vehicle.avail_energy = min(vehicle.avail_energy + vehicle.recharge_rate, vehicle.max_energy)
+
                     else:
 
                         if isinstance(vehicle.destination, Hub):
@@ -161,10 +165,12 @@ class Model():
                     
                     # Recharge the vehicle if it is at the hub
                     if isinstance(vehicle.destination, Hub) and vehicle.avail_energy < vehicle.max_energy:
-                        vehicle.avail_energy += vehicle.recharge_rate
+                        vehicle.avail_energy = min(vehicle.avail_energy + vehicle.recharge_rate, vehicle.max_energy)
 
                 # Vehicle has reached the destination's hover location
                 elif vehicle.status == 'flight' and vehicle.travel_time == 0:
+
+                    vehicle.avail_energy -= vehicle.discharge_rate/2 # discharge rate is half when hovering/landing
                     
                     # Adding to the queue
                     if vehicle.id not in vehicle.destination.queue:
@@ -188,8 +194,6 @@ class Model():
                             vehicle.location[0] = vehicle.destination.location[0]
                             vehicle.location[1] = vehicle.destination.location[1]
 
-                    vehicle.avail_energy -= vehicle.discharge_rate/2 # discharge rate is half when hovering/landing
-
                 # Vehicle is flying towards destination
                 elif vehicle.status == 'flight' and vehicle.travel_time > 0:
 
@@ -198,7 +202,7 @@ class Model():
                     vehicle.travel_time -= 1
                     vehicle.avail_energy -= vehicle.discharge_rate
 
-        imageio.mimsave(directory+'/animation.gif', images, format='.gif', fps=2.0, loop=0)
+        imageio.mimsave(self.directory+'/animation.gif', images, format='.gif', fps=2.0, loop=0)
             
     def plot(self, i=None):
         """
@@ -248,10 +252,15 @@ class Model():
         ax.annotate(msg, (3.5, -1.8), va="center", ha="center", fontsize=12, bbox=bbox_props)
 
         # Adding a note
-        ax.annotate('Number near vehicle\ndenotes energy level', (0.0, -4.0), va="center", 
+        ax.annotate('Number near vehicle\ndenotes energy level', (-3.5, -2.0), va="center", 
                     ha="center", fontsize=12, bbox=bbox_props)
-        ax.annotate('\'x\' denotes\nhover location', (0.0, 4.0), va="center", 
+        ax.annotate('\'x\' denotes\nhover location', (-3.5, -1.2), va="center", 
                     ha="center", fontsize=12, bbox=bbox_props)
+        ax.annotate(f'Turnaround time \nat hub: {self.hub.turnaround_time} min', (3.5, 2.2), va="center", 
+                    ha="center", fontsize=12, bbox=bbox_props)
+        ax.annotate(f'Recharge rate:\n{self.vehicles[0].recharge_rate} units/min', (3.5, 1.5), va="center",
+                    ha="center", fontsize=12, bbox=bbox_props)
+        # ax.annotate(f'Queue: {self.hub.queue}\nAvail pads: {self.hub.avail_pads}', (0.0, -3.5), va="center", ha="center", fontsize=12, bbox=bbox_props)
 
         # Asthetics
         if i is not None:
@@ -261,7 +270,7 @@ class Model():
         ax.set_yticks([])
         ax.legend(loc=(0.01, 0.58), fontsize=12)
         fig.tight_layout()
-        plt.savefig(f'output/iteration{i+1}.png')
+        plt.savefig(f'{self.directory}/iteration{i+1}.png')
         plt.close()
 
 def pol2cart(rho, phi):

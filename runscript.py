@@ -4,17 +4,19 @@ import numpy as np
 
 parser = argparse.ArgumentParser(description='Run the simulation')
 parser.add_argument('--num_itr', type=int, default=720, help='Number of iterations')
-parser.add_argument('--num_pads', type=int, default=3, help='Number of pads at the hub')
-parser.add_argument('--num_ports', type=int, default=6, help='Number of remote ports')
+parser.add_argument('--num_pads', type=int, default=6, help='Number of pads at the hub')
+parser.add_argument('--turnaround_time', type=int, default=10, help='Turnaround time at the hub')
+parser.add_argument('--recharge_rate', type=int, default=5, help='Recharge rate at the hub')
 args = parser.parse_args()
 
-# Variables
+# Sensitivity Variables
 num_pads = args.num_pads
-num_ports = args.num_ports
+turnaround_time = args.turnaround_time # min
+recharge_rate = args.recharge_rate # units/min
 
 # Creating the hub
+num_ports = 6
 pad_location, hover_location = hubTopology(num_pads, num_ports) # Hub topology
-turnaround_time = 8 # min
 hub = Hub(pad_location, hover_location, turnaround_time)
 
 # Creating remote ports
@@ -31,10 +33,8 @@ for i in range(num_ports):
 # Creating vehicles
 max_energy = 100
 discharge_rate = 1 # units/min
-recharge_rate = 3 # units/min
 vehicles = []
 for i in range(num_ports):
-# for i in range(2):
     vehicles.append(Vehicle(i, copy.deepcopy(port_location[i,:]), max_energy, recharge_rate, discharge_rate))
 
 # Creating the model
